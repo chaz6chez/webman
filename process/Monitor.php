@@ -65,6 +65,7 @@ class Monitor
 
     /**
      * @param $monitor_dir
+     * @return bool|void
      */
     public function checkFilesChange($monitor_dir)
     {

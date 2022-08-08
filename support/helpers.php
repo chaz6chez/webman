@@ -12,18 +12,22 @@
  * @license   http://www.opensource.org/licenses/mit-license.php MIT License
  */
 
+use support\Container;
+use support\protocols\SslListenerInterface;
+use support\protocols\TcpListenerInterface;
+use support\protocols\UdpListenerInterface;
 use support\Request;
 use support\Response;
 use support\Translation;
-use support\Container;
-use support\view\Raw;
 use support\view\Blade;
+use support\view\Raw;
 use support\view\ThinkPHP;
 use support\view\Twig;
-use Workerman\Worker;
 use Webman\App;
 use Webman\Config;
 use Webman\Route;
+use Workerman\Connection\TcpConnection;
+use Workerman\Worker;
 
 // Phar support.
 if (is_phar()) {
@@ -31,13 +35,13 @@ if (is_phar()) {
 } else {
     define('BASE_PATH', realpath(__DIR__ . '/../'));
 }
-define('WEBMAN_VERSION', '1.3.0');
+const WEBMAN_VERSION = '1.3.0';
 
 /**
- * @param $return_phar
+ * @param bool $return_phar
  * @return false|string
  */
-function base_path($return_phar = true)
+function base_path(bool $return_phar = true)
 {
     static $real_path = '';
     if (!$real_path) {
@@ -49,7 +53,7 @@ function base_path($return_phar = true)
 /**
  * @return string
  */
-function app_path()
+function app_path(): string
 {
     return BASE_PATH . DIRECTORY_SEPARATOR . 'app';
 }
@@ -57,7 +61,7 @@ function app_path()
 /**
  * @return string
  */
-function public_path()
+function public_path(): string
 {
     static $path = '';
     if (!$path) {
@@ -69,7 +73,7 @@ function public_path()
 /**
  * @return string
  */
-function config_path()
+function config_path(): string
 {
     return BASE_PATH . DIRECTORY_SEPARATOR . 'config';
 }
@@ -80,7 +84,7 @@ function config_path()
  *
  * @return string
  */
-function runtime_path()
+function runtime_path(): string
 {
     static $path = '';
     if (!$path) {
@@ -90,12 +94,12 @@ function runtime_path()
 }
 
 /**
+ * @param string $body
  * @param int $status
  * @param array $headers
- * @param string $body
  * @return Response
  */
-function response($body = '', $status = 200, $headers = array())
+function response(string $body = '', int $status = 200, array $headers = []): Response
 {
     return new Response($status, $headers, $body);
 }
@@ -105,7 +109,7 @@ function response($body = '', $status = 200, $headers = array())
  * @param int $options
  * @return Response
  */
-function json($data, $options = JSON_UNESCAPED_UNICODE)
+function json($data, int $options = JSON_UNESCAPED_UNICODE): Response
 {
     return new Response(200, ['Content-Type' => 'application/json'], json_encode($data, $options));
 }
@@ -114,7 +118,7 @@ function json($data, $options = JSON_UNESCAPED_UNICODE)
  * @param $xml
  * @return Response
  */
-function xml($xml)
+function xml($xml): Response
 {
     if ($xml instanceof SimpleXMLElement) {
         $xml = $xml->asXML();
@@ -127,7 +131,7 @@ function xml($xml)
  * @param string $callback_name
  * @return Response
  */
-function jsonp($data, $callback_name = 'callback')
+function jsonp($data, string $callback_name = 'callback'): Response
 {
     if (!is_scalar($data) && null !== $data) {
         $data = json_encode($data);
@@ -141,7 +145,7 @@ function jsonp($data, $callback_name = 'callback')
  * @param array $headers
  * @return Response
  */
-function redirect($location, $status = 302, $headers = [])
+function redirect($location, int $status = 302, array $headers = []): Response
 {
     $response = new Response($status, ['Location' => $location]);
     if (!empty($headers)) {
@@ -156,7 +160,7 @@ function redirect($location, $status = 302, $headers = [])
  * @param null $app
  * @return Response
  */
-function view($template, $vars = [], $app = null)
+function view($template, array $vars = [], $app = null): Response
 {
     static $handler;
     if (null === $handler) {
@@ -168,10 +172,11 @@ function view($template, $vars = [], $app = null)
 /**
  * @param $template
  * @param array $vars
- * @param null $app
+ * @param $app
  * @return Response
+ * @throws Throwable
  */
-function raw_view($template, $vars = [], $app = null)
+function raw_view($template, array $vars = [], $app = null): Response
 {
     return new Response(200, [], Raw::render($template, $vars, $app));
 }
@@ -182,7 +187,7 @@ function raw_view($template, $vars = [], $app = null)
  * @param null $app
  * @return Response
  */
-function blade_view($template, $vars = [], $app = null)
+function blade_view($template, array $vars = [], $app = null): Response
 {
     return new Response(200, [], Blade::render($template, $vars, $app));
 }
@@ -193,7 +198,7 @@ function blade_view($template, $vars = [], $app = null)
  * @param null $app
  * @return Response
  */
-function think_view($template, $vars = [], $app = null)
+function think_view($template, array $vars = [], $app = null): Response
 {
     return new Response(200, [], ThinkPHP::render($template, $vars, $app));
 }
@@ -204,7 +209,7 @@ function think_view($template, $vars = [], $app = null)
  * @param null $app
  * @return Response
  */
-function twig_view($template, $vars = [], $app = null)
+function twig_view($template, array $vars = [], $app = null): Response
 {
     return new Response(200, [], Twig::render($template, $vars, $app));
 }
@@ -212,7 +217,7 @@ function twig_view($template, $vars = [], $app = null)
 /**
  * @return Request
  */
-function request()
+function request(): Request
 {
     return App::request();
 }
@@ -232,7 +237,7 @@ function config($key = null, $default = null)
  * @param ...$parameters
  * @return string
  */
-function route($name, ...$parameters)
+function route($name, ...$parameters): string
 {
     $route = Route::getByName($name);
     if (!$route) {
@@ -286,15 +291,15 @@ function session($key = null, $default = null)
  * @param string|null $locale
  * @return string
  */
-function trans(string $id, array $parameters = [], string $domain = null, string $locale = null)
+function trans(string $id, array $parameters = [], string $domain = null, string $locale = null): ?string
 {
     $res = Translation::trans($id, $parameters, $domain, $locale);
     return $res === '' ? $id : $res;
 }
 
 /**
- * @param null|string $locale
- * @return string
+ * @param string|null $locale
+ * @return string|void
  */
 function locale(string $locale = null)
 {
@@ -309,7 +314,7 @@ function locale(string $locale = null)
  *
  * @return Response
  */
-function not_found()
+function not_found(): Response
 {
     return new Response(404, [], file_get_contents(public_path() . '/404.html'));
 }
@@ -321,7 +326,7 @@ function not_found()
  * @param bool $overwrite
  * @return void
  */
-function copy_dir($source, $dest, $overwrite = false)
+function copy_dir($source, $dest, bool $overwrite = false)
 {
     if (is_dir($source)) {
         if (!is_dir($dest)) {
@@ -343,7 +348,7 @@ function copy_dir($source, $dest, $overwrite = false)
  * @param $dir
  * @return bool
  */
-function remove_dir($dir)
+function remove_dir($dir): bool
 {
     if (is_link($dir) || is_file($dir)) {
         return unlink($dir);
@@ -388,6 +393,10 @@ function worker_bind($worker, $class)
  */
 function worker_start($process_name, $config)
 {
+    if (!isset($config['handler']) or !class_exists($config['handler'])) {
+        echo "process error: class {$config['handler']} not exists\r\n";
+        return;
+    }
     $worker = new Worker($config['listen'] ?? null, $config['context'] ?? []);
     $property_map = [
         'count',
@@ -404,36 +413,54 @@ function worker_start($process_name, $config)
             $worker->$property = $config[$property];
         }
     }
+    $instance = Container::make($config['handler'], $config['constructor'] ?? []);
+    if($instance instanceof TcpListenerInterface){
+        $worker->transport = 'tcp';
+    }
+    if($instance instanceof UdpListenerInterface){
+        $worker->transport = 'udp';
+    }
+    if($instance instanceof SslListenerInterface){
+        $worker->transport = 'ssl';
+    }
 
-    $worker->onWorkerStart = function ($worker) use ($config) {
+    $worker->onWorkerStart = function ($worker) use ($process_name, $config, $instance) {
         require_once base_path() . '/support/bootstrap.php';
+        worker_bind($worker, $instance);
+    };
+    unset($worker);
+}
 
-        foreach ($config['services'] ?? [] as $server) {
-            if (!class_exists($server['handler'])) {
-                echo "process error: class {$server['handler']} not exists\r\n";
-                continue;
+/**
+ * @param array $config
+ * @return void
+ */
+function master_init(array $config){
+    Worker::$pidFile = $config['pid_file'] ?? runtime_path() . '/webman.pid';
+    Worker::$stdoutFile = $config['stdout_file'] ?? runtime_path() . '/logs/stdout.log';
+    Worker::$logFile = $config['log_file'] ?? runtime_path() . '/logs/workerman.log';
+    Worker::$eventLoopClass = $config['event_loop'] ?? '';
+    TcpConnection::$defaultMaxPackageSize = $config['max_package_size'] ?? 10 * 1024 * 1024;
+    if (property_exists(Worker::class, 'statusFile')) {
+        Worker::$statusFile = $config['status_file'] ?? '';
+    }
+    if (property_exists(Worker::class, 'stopTimeout')) {
+        Worker::$stopTimeout = $config['stop_timeout'] ?? 2;
+    }
+
+    Worker::$onMasterReload = function () {
+        if (function_exists('opcache_get_status') and function_exists('opcache_invalidate')) {
+            if ($status = opcache_get_status()) {
+                if (isset($status['scripts']) && $scripts = $status['scripts']) {
+                    foreach (array_keys($scripts) as $file) {
+                        opcache_invalidate($file, true);
+                    }
+                }
             }
-            $listen = new Worker($server['listen'] ?? null, $server['context'] ?? []);
-            if (isset($server['listen'])) {
-                echo "listen: {$server['listen']}\n";
-            }
-            $instance = Container::make($server['handler'], $server['constructor'] ?? []);
-            worker_bind($listen, $instance);
-            $listen->listen();
         }
-
-        if (isset($config['handler'])) {
-            if (!class_exists($config['handler'])) {
-                echo "process error: class {$config['handler']} not exists\r\n";
-                return;
-            }
-
-            $instance = Container::make($config['handler'], $config['constructor'] ?? []);
-            worker_bind($worker, $instance);
-        }
-
     };
 }
+
 
 /**
  * Phar support.
@@ -454,7 +481,7 @@ function get_realpath(string $file_path): string
 /**
  * @return bool
  */
-function is_phar()
+function is_phar(): bool
 {
     return class_exists(\Phar::class, false) && Phar::running();
 }
@@ -462,7 +489,7 @@ function is_phar()
 /**
  * @return int
  */
-function cpu_count()
+function cpu_count(): int
 {
     // Windows does not support the number of processes setting.
     if (\DIRECTORY_SEPARATOR === '\\') {

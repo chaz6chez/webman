@@ -12,8 +12,8 @@
  * @license   http://www.opensource.org/licenses/mit-license.php MIT License
  */
 
-use Dotenv\Dotenv;
 use support\Container;
+use Webman\Bootstrap;
 use Webman\Config;
 use Webman\Route;
 use Webman\Middleware;
@@ -40,9 +40,9 @@ if ($worker) {
 
 if (class_exists('Dotenv\Dotenv') && file_exists(base_path() . '/.env')) {
     if (method_exists('Dotenv\Dotenv', 'createUnsafeImmutable')) {
-        Dotenv::createUnsafeImmutable(base_path())->load();
+        Dotenv\Dotenv::createUnsafeImmutable(base_path())->load();
     } else {
-        Dotenv::createMutable(base_path())->load();
+        Dotenv\Dotenv::createMutable(base_path())->load();
     }
 }
 
@@ -72,16 +72,20 @@ foreach (config('plugin', []) as $firm => $projects) {
 }
 Middleware::load(['__static__' => config('static.middleware', [])]);
 
+/** @var Bootstrap $class_name */
 foreach (config('bootstrap', []) as $class_name) {
-    /** @var \Webman\Bootstrap $class_name */
-    $class_name::start($worker);
+    if($worker){
+        $class_name::start($worker);
+    }
 }
 
 foreach (config('plugin', []) as $firm => $projects) {
     foreach ($projects as $name => $project) {
+        /** @var Bootstrap $class_name */
         foreach ($project['bootstrap'] ?? [] as $class_name) {
-            /** @var \Webman\Bootstrap $class_name */
-            $class_name::start($worker);
+            if($worker){
+                $class_name::start($worker);
+            }
         }
     }
 }

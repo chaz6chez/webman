@@ -14,6 +14,18 @@
 
 
 return [
+    'webman' => [
+        'listen'    => 'http://0.0.0.0:8787',
+        'transport' => 'tcp',
+        'handler'   => process\HttpServer::class,
+        'context'   => [],
+        'count'     => cpu_count(),
+        'user'      => '',
+        'group'     => '',
+        'reusePort'   => false,
+        'reloadable'  => false,
+        'constructor' => []
+    ],
     // File update detection and automatic reload
     'monitor' => [
         'handler' => process\Monitor::class,
